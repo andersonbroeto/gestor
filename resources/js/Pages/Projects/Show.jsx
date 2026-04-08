@@ -1,6 +1,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import Modal from '@/Components/Modal';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -14,6 +16,34 @@ export default function Show({ project, transactions, tasks, clients }) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showEditTransactionModal, setShowEditTransactionModal] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState(null);
+    const [notes, setNotes] = useState(project.notes || '');
+    const [savingNotes, setSavingNotes] = useState(false);
+    const typingTimeout = useRef(null);
+
+    const saveNotes = (newContent) => {
+
+        setSavingNotes(true);
+        router.patch(route('projects.update', project.id), {
+            name: project.name,
+            client_id: project.client_id,
+            budget: project.budget,
+            status: project.status,
+            notes: newContent !== undefined ? newContent : notes,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => setSavingNotes(false)
+        });
+    };
+
+    const handleNotesChange = (content) => {
+        setNotes(content);
+        if (typingTimeout.current) clearTimeout(typingTimeout.current);
+        setSavingNotes(true);
+        typingTimeout.current = setTimeout(() => {
+            saveNotes(content);
+        }, 1500);
+    };
 
     const transactionEditForm = useForm({
         project_id: project.id,
@@ -91,6 +121,7 @@ export default function Show({ project, transactions, tasks, clients }) {
             client_id: project.client_id,
             budget: project.budget,
             status: newStatus,
+            notes: notes,
         }, { preserveScroll: true });
     };
 
@@ -206,134 +237,169 @@ export default function Show({ project, transactions, tasks, clients }) {
                         </div>
                     </div>
 
-                    {/* Gráfico de distribuição */}
-                    <div className="glass-card p-6">
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-sm font-bold text-gray-600 uppercase tracking-widest">Distribuição do Orçamento</h3>
-                            <button
-                                onClick={() => setShowFinanceModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Lançar Financeiro
-                            </button>
-                        </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                         
-                        {/* 3 barras independentes — cada uma como % do orçamento */}
-                        {(() => {
-                            const ref = budget > 0 ? budget : 1;
-                            const bars = [
-                                { label: 'Recebido',  value: received, pct: Math.min(100, (received / ref) * 100), barCls: 'bg-emerald-500', textCls: 'text-emerald-600' },
-                                { label: 'Custos',    value: costs,    pct: Math.min(100, (costs    / ref) * 100), barCls: 'bg-rose-400',    textCls: 'text-rose-500'   },
-                            ];
-                            if (remaining > 0) {
-                                bars.push({ label: 'A Receber', value: remaining,pct: Math.min(100, (remaining/ ref) * 100), barCls: 'bg-amber-400',   textCls: 'text-amber-500'  });
-                            }
-                            return (
-                                <div className="space-y-3 mb-2">
-                                    {bars.map(bar => (
-                                        <div key={bar.label}>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-xs font-semibold text-gray-500">{bar.label}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-xs font-black ${bar.textCls}`}>{formatCurrency(bar.value)}</span>
-                                                    <span className="text-[10px] text-gray-400 w-8 text-right">{Math.round(bar.pct)}%</span>
-                                                </div>
+                        {/* COLUNA ESQUERDA - Anotações e Tarefas */}
+                        <div className="space-y-8 flex flex-col xl:h-full">
+                            
+                            {/* Anotações do Projeto */}
+                            <div className="glass-card overflow-hidden flex flex-col">
+                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                    <h3 className="font-bold text-gray-700">Anotações do Projeto</h3>
+                                    {savingNotes && (
+                                        <span className="text-xs font-bold text-emerald-500 animate-pulse bg-emerald-50 px-2 py-0.5 rounded">Salvando...</span>
+                                    )}
+                                </div>
+                                <div className="flex-1 p-0 relative">
+                                    <ReactQuill 
+                                        theme="snow"
+                                        value={notes}
+                                        onChange={handleNotesChange}
+                                        className="h-[300px] border-none"
+                                        placeholder="Digite observações, links importantes ou ideias aqui..."
+                                        modules={{ toolbar: [['bold', 'italic', 'underline'], ['link'], [{'list': 'ordered'}, {'list': 'bullet'}], ['clean']] }}
+                                    />
+                                    <style>{`
+                                        .ql-toolbar.ql-snow { border: none !important; border-bottom: 1px solid #f3f4f6 !important; background: transparent; padding: 12px 24px; }
+                                        .ql-container.ql-snow { border: none !important; }
+                                        .ql-editor { min-height: 250px; padding: 24px; font-size: 14px; color: #4b5563; }
+                                        .ql-editor:focus { outline: none; }
+                                    `}</style>
+                                </div>
+                            </div>
+
+                            {/* Tarefas */}
+                            <div className="glass-card overflow-hidden">
+                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                    <h3 className="font-bold text-gray-700">Tarefas do Projeto</h3>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-gray-400">{tasks.length} tarefa{tasks.length !== 1 ? 's' : ''}</span>
+                                        <button
+                                            onClick={() => setShowTaskModal(true)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Nova Tarefa
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="divide-y divide-gray-50">
+                                    {tasks.map(task => {
+                                        const tc = taskStatus[task.status] || taskStatus.iniciar;
+                                        return (
+                                            <div key={task.id} className="px-6 py-3 flex items-center justify-between gap-3">
+                                                <p className={`text-sm font-semibold ${task.status === 'concluida' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                                                    {task.title}
+                                                </p>
+                                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] font-black rounded-md border ${tc.cls}`}>{tc.label}</span>
                                             </div>
-                                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                                                <div
-                                                    className={`h-full ${bar.barCls} rounded-full transition-all duration-700`}
-                                                    style={{ width: `${bar.pct}%` }}
-                                                />
+                                        );
+                                    })}
+                                    {tasks.length === 0 && (
+                                        <div className="px-6 py-10 text-center text-gray-400 text-sm">Nenhuma tarefa vinculada.</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* COLUNA DIREITA - Financeiro */}
+                        <div className="space-y-8 flex flex-col xl:h-full">
+                            
+                            {/* Gráfico de distribuição */}
+                            <div className="glass-card p-6">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-widest">Distribuição do Orçamento</h3>
+                                    <button
+                                        onClick={() => setShowFinanceModal(true)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Lançar Financeiro
+                                    </button>
+                                </div>
+                                
+                                {/* 3 barras independentes — cada uma como % do orçamento */}
+                                {(() => {
+                                    const ref = budget > 0 ? budget : 1;
+                                    const bars = [
+                                        { label: 'Recebido',  value: received, pct: Math.min(100, (received / ref) * 100), barCls: 'bg-emerald-500', textCls: 'text-emerald-600' },
+                                        { label: 'Custos',    value: costs,    pct: Math.min(100, (costs    / ref) * 100), barCls: 'bg-rose-400',    textCls: 'text-rose-500'   },
+                                    ];
+                                    if (remaining > 0) {
+                                        bars.push({ label: 'A Receber', value: remaining,pct: Math.min(100, (remaining/ ref) * 100), barCls: 'bg-amber-400',   textCls: 'text-amber-500'  });
+                                    }
+                                    return (
+                                        <div className="space-y-3 mb-2">
+                                            {bars.map(bar => (
+                                                <div key={bar.label}>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-semibold text-gray-500">{bar.label}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-black ${bar.textCls}`}>{formatCurrency(bar.value)}</span>
+                                                            <span className="text-[10px] text-gray-400 w-8 text-right">{Math.round(bar.pct)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                                                        <div
+                                                            className={`h-full ${bar.barCls} rounded-full transition-all duration-700`}
+                                                            style={{ width: `${bar.pct}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Lançamentos */}
+                            <div className="glass-card overflow-hidden flex-1">
+                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                    <h3 className="font-bold text-gray-700">Lançamentos Financeiros</h3>
+                                    <span className="text-xs font-bold text-gray-400">{transactions.length} lançamento{transactions.length !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                                    {transactions.map(t => (
+                                        <div key={t.id} className="px-6 py-3 flex items-center justify-between gap-3 group hover:bg-gray-50/60 transition-colors">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-gray-800 truncate">{t.description || '—'}</p>
+                                                <p className="text-[10px] text-gray-400">{formatDate(t.date)}</p>
+                                            </div>
+                                            <span className={`text-sm font-black shrink-0 ${t.type === 'receita' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                {t.type === 'receita' ? '+' : '−'}{formatCurrency(t.value)}
+                                            </span>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={() => openEditTransaction(t)} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" title="Editar">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                                    </svg>
+                                                </button>
+                                                <button onClick={() => deleteTransaction(t.id)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors" title="Excluir">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
+                                    {transactions.length === 0 && (
+                                        <div className="px-6 py-10 text-center text-gray-400 text-sm">Nenhum lançamento neste projeto.</div>
+                                    )}
                                 </div>
-                            );
-                        })()}
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Tarefas */}
-                        <div className="glass-card overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-700">Tarefas do Projeto</h3>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-bold text-gray-400">{tasks.length} tarefa{tasks.length !== 1 ? 's' : ''}</span>
-                                    <button
-                                        onClick={() => setShowTaskModal(true)}
-                                        className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Nova Tarefa
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {tasks.map(task => {
-                                    const tc = taskStatus[task.status] || taskStatus.iniciar;
-                                    return (
-                                        <div key={task.id} className="px-6 py-3 flex items-center justify-between gap-3">
-                                            <p className={`text-sm font-semibold ${task.status === 'concluida' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                                                {task.title}
-                                            </p>
-                                            <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] font-black rounded-md border ${tc.cls}`}>{tc.label}</span>
+                                {transactions.length > 0 && (
+                                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between text-xs font-bold">
+                                        <div className="flex gap-4">
+                                            <span className="text-emerald-600">Receitas: {formatCurrency(transactions.filter(t=>t.type==='receita').reduce((a,t)=>a+parseFloat(t.value),0))}</span>
+                                            <span className="text-rose-500">Custos: {formatCurrency(transactions.filter(t=>t.type==='despesa').reduce((a,t)=>a+parseFloat(t.value),0))}</span>
                                         </div>
-                                    );
-                                })}
-                                {tasks.length === 0 && (
-                                    <div className="px-6 py-10 text-center text-gray-400 text-sm">Nenhuma tarefa vinculada.</div>
+                                        <span className={`${profit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>Saldo: {formatCurrency(received - costs)}</span>
+                                    </div>
                                 )}
                             </div>
-                        </div>
-
-                        {/* Lançamentos */}
-                        <div className="glass-card overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-700">Lançamentos Financeiros</h3>
-                                <span className="text-xs font-bold text-gray-400">{transactions.length} lançamento{transactions.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
-                                {transactions.map(t => (
-                                    <div key={t.id} className="px-6 py-3 flex items-center justify-between gap-3 group hover:bg-gray-50/60 transition-colors">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-800 truncate">{t.description || '—'}</p>
-                                            <p className="text-[10px] text-gray-400">{formatDate(t.date)}</p>
-                                        </div>
-                                        <span className={`text-sm font-black shrink-0 ${t.type === 'receita' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                            {t.type === 'receita' ? '+' : '−'}{formatCurrency(t.value)}
-                                        </span>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <button onClick={() => openEditTransaction(t)} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" title="Editar">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z" />
-                                                </svg>
-                                            </button>
-                                            <button onClick={() => deleteTransaction(t.id)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors" title="Excluir">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                                {transactions.length === 0 && (
-                                    <div className="px-6 py-10 text-center text-gray-400 text-sm">Nenhum lançamento neste projeto.</div>
-                                )}
-                            </div>
-                            {transactions.length > 0 && (
-                                <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between text-xs font-bold">
-                                    <div className="flex gap-4">
-                                        <span className="text-emerald-600">Receitas: {formatCurrency(transactions.filter(t=>t.type==='receita').reduce((a,t)=>a+parseFloat(t.value),0))}</span>
-                                        <span className="text-rose-500">Custos: {formatCurrency(transactions.filter(t=>t.type==='despesa').reduce((a,t)=>a+parseFloat(t.value),0))}</span>
-                                    </div>
-                                    <span className={`${profit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>Saldo: {formatCurrency(received - costs)}</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

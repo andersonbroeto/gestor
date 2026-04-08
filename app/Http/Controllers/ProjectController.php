@@ -73,6 +73,7 @@ class ProjectController extends Controller
             'name' => 'required|string|max:255',
             'budget' => 'required|numeric|min:0',
             'status' => 'required|in:orcamento,em_andamento,concluido',
+            'notes' => 'nullable|string',
         ]);
 
         Project::create($validated);
@@ -87,6 +88,7 @@ class ProjectController extends Controller
             'name' => 'required|string|max:255',
             'budget' => 'required|numeric|min:0',
             'status' => 'required|in:orcamento,em_andamento,concluido',
+            'notes' => 'nullable|string',
         ]);
 
         $project->update($validated);

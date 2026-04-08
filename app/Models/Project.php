@@ -10,7 +10,7 @@ class Project extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['tenant_id', 'client_id', 'name', 'budget', 'status'];
+    protected $fillable = ['tenant_id', 'client_id', 'name', 'budget', 'status', 'notes'];
 
     public function client()
     {
