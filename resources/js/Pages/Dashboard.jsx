@@ -18,14 +18,14 @@ export default function Dashboard({ stats }) {
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
-                    
+
                     {/* Financial Indicators */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <Link href={route('finance.index', { type: 'receita' })} className="glass-card p-6 border-l-4 border-indigo-500 hover:scale-[1.02] transition-transform block">
                             <span className="stat-label">Total de Receitas</span>
                             <div className="stat-value text-indigo-600">{formatCurrency(stats.financial.revenue)}</div>
                         </Link>
-                        
+
                         <Link href={route('finance.index', { type: 'despesa' })} className="glass-card p-6 border-l-4 border-rose-500 hover:scale-[1.02] transition-transform block">
                             <span className="stat-label">Total de Despesas</span>
                             <div className="stat-value text-rose-600">{formatCurrency(stats.financial.expenses)}</div>

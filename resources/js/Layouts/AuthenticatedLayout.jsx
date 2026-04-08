@@ -60,6 +60,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Financeiro
                                 </NavLink>
+                                <NavLink
+                                    href={route('passwords.index')}
+                                    active={route().current('passwords.*')}
+                                >
+                                    Senhas
+                                </NavLink>
                             </div>
                         </div>
 
@@ -193,6 +199,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('finance.*')}
                         >
                             Financeiro
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('passwords.index')}
+                            active={route().current('passwords.*')}
+                        >
+                            Senhas
                         </ResponsiveNavLink>
                     </div>
 
