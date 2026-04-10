@@ -11,11 +11,17 @@ use Inertia\Inertia;
 
 class ProjectController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $statusOrder = "CASE status WHEN 'orcamento' THEN 1 WHEN 'em_andamento' THEN 2 WHEN 'concluido' THEN 3 END";
 
-        $projects = Project::with('client')
+        $query = Project::with('client');
+
+        if ($request->has('status') && $request->status !== 'todos') {
+            $query->where('status', $request->status);
+        }
+
+        $projects = $query
             ->orderByRaw($statusOrder)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -38,7 +44,8 @@ class ProjectController extends Controller
                 'budget'   => $projects->sum('budget'),
                 'received' => $projects->sum('total_received'),
                 'pending'  => $projects->sum('remaining_to_receive'),
-            ]
+            ],
+            'filters' => $request->only(['status'])
         ]);
     }
 

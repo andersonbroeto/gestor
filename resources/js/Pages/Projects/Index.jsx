@@ -7,8 +7,9 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-export default function Index({ projects, clients, totals }) {
+export default function Index({ projects, clients, totals, filters }) {
     const [showModal, setShowModal] = useState(false);
+    const [activeFilter, setActiveFilter] = useState(filters.status || 'todos');
 
     const { data, setData, post, processing, reset } = useForm({
         client_id: '',
@@ -38,6 +39,19 @@ export default function Index({ projects, clients, totals }) {
         concluido:    { label: 'Concluído',    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
     };
 
+    const filterOptions = [
+        { value: 'todos', label: 'Todos' },
+        { value: 'orcamento', label: 'Orçamento' },
+        { value: 'em_andamento', label: 'Em Andamento' },
+        { value: 'concluido', label: 'Concluídos' },
+    ];
+
+    const applyFilter = (status) => {
+        setActiveFilter(status);
+        const params = status !== 'todos' ? { status } : {};
+        router.get(route('projects.index'), params, { preserveState: true, replace: true });
+    };
+
     return (
         <AuthenticatedLayout header={<h2 className="text-2xl font-bold text-indigo-800">Projetos</h2>}>
             <Head title="Projetos" />
@@ -61,10 +75,35 @@ export default function Index({ projects, clients, totals }) {
                         </div>
                     </div>
 
+                    {/* Filtro por Status */}
+                    <div className="glass-card p-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-500 mr-2">Filtrar por:</span>
+                            {filterOptions.map((option) => (
+                                <button
+                                    key={option.value}
+                                    onClick={() => applyFilter(option.value)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                        activeFilter === option.value
+                                            ? 'gradient-primary text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Lista de Projetos */}
                     <div className="glass-card overflow-hidden">
                         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                            <h3 className="text-base font-bold text-gray-700">Todos os Projetos</h3>
+                            <h3 className="text-base font-bold text-gray-700">
+                                {activeFilter === 'todos' ? 'Todos os Projetos' : 
+                                 activeFilter === 'orcamento' ? 'Projetos em Orçamento' :
+                                 activeFilter === 'em_andamento' ? 'Projetos em Andamento' : 'Projetos Concluídos'}
+                                <span className="ml-2 text-sm font-normal text-gray-400">({projects.length})</span>
+                            </h3>
                             <PrimaryButton onClick={() => openModal()} className="btn-premium gradient-primary text-white border-none text-sm">
                                 + Novo Projeto
                             </PrimaryButton>
